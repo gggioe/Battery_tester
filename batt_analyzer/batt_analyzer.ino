@@ -1,7 +1,7 @@
 #include <arduino-timer.h>
 #include <LiquidCrystal_I2C.h>
 
-#define Safety_cutoff 2.8
+#define Safety_cutoff -1
 
 #define set_b 2 // set menu button (INTERRUPT)
 
@@ -48,10 +48,20 @@ bool CH2 = false;
 bool CH3 = false;
 bool CH4 = false;
 
-uint32_t t1 = 0;   // time value in sec
-uint32_t t2 = 0;
-uint32_t t3 = 0;
-uint32_t t4 = 0;
+uint8_t s1 = 0;   //sec
+uint8_t s2 = 0;
+uint8_t s3 = 0;
+uint8_t s4 = 0;
+
+uint8_t m1 = 0;   // min
+uint8_t m2 = 0;
+uint8_t m3 = 0;
+uint8_t m4 = 0;
+
+uint8_t h1 = 0;   // hour
+uint8_t h2 = 0;
+uint8_t h3 = 0;
+uint8_t h4 = 0;
 
 float Ah1 = 0.0;   // Ampere hour value
 float Ah2 = 0.0;
@@ -78,46 +88,6 @@ uint16_t v_2;
 uint16_t v_3;
 uint16_t v_4;
 
-
-/////////////////////////////////////
-
-void setup() {
-
-  Serial.begin(9600);
-  lcd.init();          //LCD init
-  lcd.backlight();
-  lcd.home();
-
-  pinMode(SD1,OUTPUT); // Shutdown channel
-  pinMode(SD2,OUTPUT);
-  pinMode(SD3,OUTPUT);
-  pinMode(SD4,OUTPUT);
-
-  pinMode(vp1, INPUT); // voltage pin
-  pinMode(vp2, INPUT);
-  pinMode(vp3, INPUT);
-  pinMode(vp4, INPUT);
-
-  pinMode(clk,INPUT);  // Encoder init
-  pinMode(dt,INPUT);
-  pinMode(psb,INPUT);
-
-  pclk = digitalRead(clk);  
-  pdt = digitalRead(dt);
-  page = 0;
-
-  timer.every(200, out_set);
-  timer.every(500, display);
-  timer.every(1000,calc);
-  
-  pinMode(psb, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(psb), button, FALLING);
-
-  pinMode(set_b, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(set_b), set_m, FALLING);
-
-}
-
 /////////////////////////////////////
 
 bool calc(){
@@ -136,30 +106,103 @@ bool calc(){
 
   if(CH1){
     
-    t1++;
+    s1++;
     iv1=(i1/(5/255));
     Ah1=Ah1+(i1/3600);
+
+    if(s1>=60){            // if seconds >60
+          s1=s1/60;
+          m1++;             // add a minute
+        }
+
+      if(m1>=60){   
+        m1=m1/60;
+        h1++;
+      }
   }
 
   if(CH2){
-    t2++;
+    s2++;
     iv2=(i2/(5/255));
     Ah2=Ah2+(i2/3600);
+
+    if(s2>=60){            // if seconds >60
+          s2=s2/60;
+          m2++;             // add a minute
+        }
+
+      if(m2>=60){   
+        m2=m2/60;
+        h2++;
+      }
   }
 
   if(CH3){
-    t3++;
+    s3++;
     iv3=(i3/(5/255));
     Ah3=Ah3+(i3/3600);
+
+    if(s3>=60){            // if seconds >60
+          s3=s3/60;
+          m3++;             // add a minute
+        }
+
+      if(m3>=60){   
+        m3=m3/60;
+        h3++;
+      }
   }
 
   if(CH4){
-    t4++;
+    s4++;
     iv4=(i4/(5/255));
     Ah4=Ah4+(i4/3600);
+
+    if(s4>=60){            // if seconds >60
+          s4=s4/60;
+          m4++;             // add a minute
+        }
+
+      if(m4>=60){   
+        m4=m4/60;
+        h4++;
+      }
   }
 
   return true;
+}
+
+/////////////////////////////////////
+
+void out_set(){// set output on/off
+
+  if(CH1){                   // if we want the channel to be on
+    digitalWrite(SD1,LOW);   // mos off
+  }
+  else{
+    digitalWrite(SD1,HIGH);  // mos on
+  }
+
+  if(CH2){
+    digitalWrite(SD2,LOW);   // mos off
+  }
+  else{
+    digitalWrite(SD2,HIGH);  // mos on
+  }
+
+  if(CH3){
+    digitalWrite(SD3,LOW);   // mos off
+  }
+  else{
+    digitalWrite(SD3,HIGH);  // mos on
+  }
+
+  if(CH4){
+    digitalWrite(SD4,LOW);   // mos off
+  }
+  else{
+    digitalWrite(SD4,HIGH);  // mos on
+  }
 }
 
 /////////////////////////////////////
@@ -279,8 +322,19 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("Ah:");      // print capacity
       lcd.print(Ah1,3);
-      lcd.print(" T:");      // print time
-      lcd.print(t1);
+      lcd.print(" ");
+
+      if(h1>0){               //to save space in the lcd print hours only if >o
+        lcd.print(h1); 
+        lcd.print(":");
+      }
+      lcd.print(m1);        // print minutes
+
+      if(h1<10){            // if the test runs for more than 10 hours in order to save space does not print seconds
+
+        lcd.print(":");
+        lcd.print(s1);        // print seconds
+      }
       break;
 
       case 1:
@@ -299,8 +353,19 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("Ah:");      // print capacity
       lcd.print(Ah2,3);
-      lcd.print(" T:");      // print time
-      lcd.print(t2);
+      lcd.print(" ");
+
+      if(h2>0){               //to save space in the lcd print hours only if >o
+        lcd.print(h2); 
+        lcd.print(":");
+      }
+      lcd.print(m2);        // print minutes
+
+      if(h2<10){            // if the test runs for more than 10 hours in order to save space does not print seconds
+
+        lcd.print(":");
+        lcd.print(s2);        // print seconds
+      }
       break;
 
       case 2:
@@ -319,8 +384,19 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("Ah:");      // print capacity
       lcd.print(Ah3,3);
-      lcd.print(" T:");      // print time
-      lcd.print(t3);
+      lcd.print(" ");
+
+      if(h3>0){               //to save space in the lcd print hours only if >o
+        lcd.print(h3); 
+        lcd.print(":");
+      }
+      lcd.print(m3);        // print minutes
+
+      if(h3<10){            // if the test runs for more than 10 hours in order to save space does not print seconds
+
+        lcd.print(":");
+        lcd.print(s3);        // print seconds
+      }
       break;
 
       case 3:
@@ -339,46 +415,24 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("Ah:");      // print capacity
       lcd.print(Ah4,3);
-      lcd.print(" T:");      // print time
-      lcd.print(t4);
+      lcd.print(" ");
+
+      if(h4>0){               //to save space in the lcd print hours only if >o
+        lcd.print(h4); 
+        lcd.print(":");
+      }
+      lcd.print(m4);        // print minutes
+
+      if(h4<10){            // if the test runs for more than 10 hours in order to save space does not print seconds
+
+        lcd.print(":");
+        lcd.print(s4);        // print seconds
+      }
       break;
     }
   }
 
   return true;
-}
-
-/////////////////////////////////////
-
-void out_set(){// set output on/off
-
-  if(CH1){                   // if we want the channel to be on
-    digitalWrite(SD1,LOW);   // mos off
-  }
-  else{
-    digitalWrite(SD1,HIGH);  // mos on
-  }
-
-  if(CH2){
-    digitalWrite(SD2,LOW);   // mos off
-  }
-  else{
-    digitalWrite(SD2,HIGH);  // mos on
-  }
-
-  if(CH3){
-    digitalWrite(SD3,LOW);   // mos off
-  }
-  else{
-    digitalWrite(SD3,HIGH);  // mos on
-  }
-
-  if(CH4){
-    digitalWrite(SD4,LOW);   // mos off
-  }
-  else{
-    digitalWrite(SD4,HIGH);  // mos on
-  }
 }
 
 /////////////////////////////////////
@@ -445,6 +499,43 @@ void set_m(){// set button interrupt handler
 
 /////////////////////////////////////
 
+void setup() {
+
+  Serial.begin(9600);
+  lcd.init();          //LCD init
+  lcd.backlight();
+  lcd.home();
+
+  pinMode(SD1,OUTPUT); // Shutdown channel
+  pinMode(SD2,OUTPUT);
+  pinMode(SD3,OUTPUT);
+  pinMode(SD4,OUTPUT);
+
+  pinMode(vp1, INPUT); // voltage pin
+  pinMode(vp2, INPUT);
+  pinMode(vp3, INPUT);
+  pinMode(vp4, INPUT);
+
+  pinMode(clk,INPUT);  // Encoder init
+  pinMode(dt,INPUT);
+  pinMode(psb,INPUT);
+
+  pclk = digitalRead(clk);  
+  pdt = digitalRead(dt);
+  page = 0;
+
+  timer.every(200, out_set);
+  timer.every(500, display);
+  timer.every(100,calc);
+  
+  pinMode(psb, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(psb), button, FALLING);
+
+  pinMode(set_b, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(set_b), set_m, FALLING);
+
+}
+
 void loop() {
 
   timer.tick();
@@ -496,15 +587,8 @@ void loop() {
 
 /*TODO:
 
-
-
-
-        4) aggiungere algoritmo di calcolo Ah, Wh ecc
+        4) aggiungere algoritmo di calcolo Wh ecc
         
         5) aggiungere pulsante di reset, quando ci troviamo in una pagina, se premuto resetta le variabili
-
-        7) cambiare display tempo 
-
-
 
 */       
