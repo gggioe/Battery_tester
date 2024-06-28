@@ -1,16 +1,18 @@
 #include <arduino-timer.h>
 #include <LiquidCrystal_I2C.h>
 
-#define Safety_cutoff -1
+#define Safety_cutoff 3
 
 #define set_b 2 // set menu button (INTERRUPT)
 
-#define clk 12  // encoder pin
-#define dt  13
+#define pwm_const 0.019607843
+
+#define clk 11 // encoder pin
+#define dt  12
 #define psb 3   // INTERRUPT
 
 #define SD1 4   // Shutdown pin
-#define SD2 11
+#define SD2 13
 #define SD3 7
 #define SD4 8
 
@@ -34,12 +36,13 @@ unsigned int pclk;   //Encoder variables
 unsigned int pdt;
 unsigned int cclk;
 unsigned int cdt;
-uint8_t page;      
+int page;      
 uint8_t i=0;
 bool increment=false;
 bool decrement=false;
 
 volatile byte state = LOW;   // button state
+volatile byte edit = LOW;    // edit menu flag
 bool set = false;
 
 
@@ -88,26 +91,31 @@ uint16_t v_2;
 uint16_t v_3;
 uint16_t v_4;
 
+
+
 /////////////////////////////////////
 
-bool calc(){
+bool calc(){// calculations
 
+  iv1 = int(trunc(i1/pwm_const));
   v_1 = analogRead(vp1);
   v1 = v_1*(5/1024.0);
   
+  iv2 = int(trunc(i2/pwm_const));
   v_2 = analogRead(vp2);
   v2 = v_2*(5/1024.0);
   
+  iv3 = int(trunc(i3/pwm_const));
   v_3 = analogRead(vp3);
   v3 = v_3*(5/1024.0);
   
+  iv4 = int(trunc(i4/pwm_const));
   v_4 = analogRead(vp4);
   v4 = v_4*(5/1024.0);
 
   if(CH1){
     
     s1++;
-    iv1=(i1/(5/255));
     Ah1=Ah1+(i1/3600);
 
     if(s1>=60){            // if seconds >60
@@ -123,7 +131,6 @@ bool calc(){
 
   if(CH2){
     s2++;
-    iv2=(i2/(5/255));
     Ah2=Ah2+(i2/3600);
 
     if(s2>=60){            // if seconds >60
@@ -139,7 +146,6 @@ bool calc(){
 
   if(CH3){
     s3++;
-    iv3=(i3/(5/255));
     Ah3=Ah3+(i3/3600);
 
     if(s3>=60){            // if seconds >60
@@ -155,7 +161,6 @@ bool calc(){
 
   if(CH4){
     s4++;
-    iv4=(i4/(5/255));
     Ah4=Ah4+(i4/3600);
 
     if(s4>=60){            // if seconds >60
@@ -178,30 +183,38 @@ void out_set(){// set output on/off
 
   if(CH1){                   // if we want the channel to be on
     digitalWrite(SD1,LOW);   // mos off
+    analogWrite(ip1,iv1);     // write the value
   }
   else{
     digitalWrite(SD1,HIGH);  // mos on
+    analogWrite(ip1,0);     // write the value
   }
 
   if(CH2){
     digitalWrite(SD2,LOW);   // mos off
+    analogWrite(ip2,iv2);     // write the value
   }
   else{
     digitalWrite(SD2,HIGH);  // mos on
+    analogWrite(ip2,0);     // write the value
   }
 
   if(CH3){
     digitalWrite(SD3,LOW);   // mos off
+    analogWrite(ip3,iv3);     // write the value
   }
   else{
     digitalWrite(SD3,HIGH);  // mos on
+    analogWrite(ip3,0);     // write the value
   }
 
   if(CH4){
     digitalWrite(SD4,LOW);   // mos off
+    analogWrite(ip4,iv4);     // write the value
   }
   else{
     digitalWrite(SD4,HIGH);  // mos on
+    analogWrite(ip4,0);     // write the value
   }
 }
 
@@ -209,7 +222,7 @@ void out_set(){// set output on/off
 
 bool display(){// display refresh
 
-  if(set){  // if the user press the set button display the set menu
+  if(set){  // if we are in the set menu
 
     switch(page){
 
@@ -219,20 +232,6 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("I:");    
       lcd.print(i1);
-
-      if(state){    // if the encoder button is pressed, edit the current channel
-    
-        if(increment){        // if an increment is detected
-          i1=i1+istep;;       // increment i by a defined step
-          increment=false;    // reset the variable when an increment is done
-        }
-
-        if(decrement){
-          i1=i1-istep;;       // decrement i by a defined step
-          decrement=false;    // reset the variable when a decrement is done
-        }
-      analogWrite(ip1,i1);    // write the set value
-      }
       break;
 
       case 1:            
@@ -241,20 +240,6 @@ bool display(){// display refresh
       lcd.setCursor(0,1); 
       lcd.print("I:");    
       lcd.print(i2);
-
-      if(state){    // if the encoder button is pressed, edit the current channel
-    
-        if(increment){        // if an increment is detected
-          i2=i2+istep;;       // increment i by a defined step
-          increment=false;    // reset the variable when an increment is done
-        }
-
-        if(decrement){
-          i2=i2-istep;;       // decrement i by a defined step
-          decrement=false;    // reset the variable when a decrement is done
-        }
-      }
-      analogWrite(ip2,i2);    // write the set value
       break;
 
       case 2:            
@@ -263,20 +248,6 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("I:");    
       lcd.print(i3);
-
-      if(state){    // if the encoder button is pressed, edit the current channel
-    
-        if(increment){        // if an increment is detected
-          i3=i3+istep;;       // increment i by a defined step
-          increment=false;    // reset the variable when an increment is done
-        }
-
-        if(decrement){
-          i3=i3-istep;;       // decrement i by a defined step
-          decrement=false;    // reset the variable when a decrement is done
-        }
-      }
-      analogWrite(ip3,i3);    // write the set value
       break;
 
       case 3:            
@@ -285,25 +256,12 @@ bool display(){// display refresh
       lcd.setCursor(0,1);
       lcd.print("I:");    
       lcd.print(i4);
-
-      if(state){    // if the encoder button is pressed, edit the current channel
-    
-        if(increment){        // if an increment is detected
-          i4=i4+istep;;       // increment i by a defined step
-          increment=false;    // reset the variable when an increment is done
-        }
-
-        if(decrement){
-          i4=i4-istep;;       // decrement i by a defined step
-          decrement=false;    // reset the variable when a decrement is done
-        }
-      }
-      analogWrite(ip4,i4);    // write the set value
       break;
     }
   }
 
   else{     // otherwise show the info menu
+
     switch(page){
 
       case 0:
@@ -439,10 +397,9 @@ bool display(){// display refresh
 
 void button(){// encoder button interrupt handler
 
-  state = !state;     //change state and
+  if(!set){          // if we are not in the set menu toggle channel on off 
 
-  if(!set){          // if we are not in the set menu 
-
+    state = !state;     //change state
     switch(page){        // check the page and then change the state of the channel if the voltage is above the safety threshold
 
     case 0:
@@ -481,7 +438,10 @@ void button(){// encoder button interrupt handler
       }
     break;
     }
-  }                  // otherwise if we are in the set menu just toggle the button state
+  }                  
+  else{              // otherwise if we are in the set menu, toggle edit flag
+    edit = !edit;
+  }
 }        
 
 /////////////////////////////////////
@@ -492,8 +452,11 @@ void set_m(){// set button interrupt handler
     set=true;       // enter set menu
   }
 
-  else{            
-    set=false;      // otherwise exit from the set menu
+  else{             
+    set=false;      // exit from the set menu and if edit mode is still on turn it off otherwise when not in set/edit mode the user can still
+    if(edit){       // change the current value by accident
+      edit=LOW;
+    }            
   }
 }
 
@@ -543,46 +506,96 @@ void loop() {
   cclk = digitalRead(clk);
   cdt = digitalRead(dt);
 
-  if (cclk != pclk) {  // encoder and page control
-    if (cdt == cclk){
-      if(i>=2){         // if the encoder is rotaded counter clockwise
+  if (cclk != pclk) { 
+    if (cdt == cclk){  // counter clockwise
+      if(i>=2){       // one time (2 pulse per tick)
 
-        if(!state){     // and we are not in the edit ch mode 
-           page --;     // switch page                                               
+        if(!edit){    // and we are not in the in the edit ch mode (only in info or set display)
+          page --;    // decrement page number                                             
 
-          if(page>3){
+          if(page<0){
             page=3;
           }
-          i=0;
         }
 
-        else{        //otherwise we are in the edit menu, then use the encoder to decrement the value
-          decrement=true;
+        else{              //otherwise we are in the edit menu so use the encoder to decrement the value
+            switch(page){  // select the correct page and
+          
+              case 0:
+                if(i1>0.101){ // if the value is above the minimum
+                  i1=i1-istep;;   // decrement the value
+                }
+              break;
+
+              case 1:
+                if(i2>0.101){ // if the value is above the minimum
+                  i2=i2-istep;;   // decrement the value
+                }
+              break;
+
+              case 2:
+                if(i3>0.101){ // if the value is above the minimum
+                  i3=i3-istep;;   // decrement the value
+                }
+              break;
+
+              case 3:
+                if(i4>0.101){ // if the value is above the minimum
+                  i4=i4-istep;;   // decrement the value
+                }
+              break;
+            }
         }
+        i=0;
       }
-    } 
+    }
+    
+    else{              // if encoder is rotated clockwise 
+       if(i>=2){       // one time (2 pulse per tick)
+        if(!edit){     // and we are not in the in the edit ch mode (only in info or set display)
+          page ++;     // increment page number                                             
 
-    else { 
-      if(i>=2){     
-
-        if(!state){    // if we are not in the edit ch mode do the usual page stuff
-          page ++;     
           if(page>3){
             page=0;
           }
-          i=0;
-
-
         }
-        else{
-          increment=true;  //othewise use the encoder to increment the value
+
+        else{              //otherwise we are in the edit menu so use the encoder to decrement the value
+            switch(page){  // select the correct page and
+          
+              case 0:
+                if(i1<=4.900){ // if the value is below the maximum
+                  i1=i1+istep;;   // decrement the value
+                }
+              break;
+
+              case 1:
+                if(i2<=4.900){ 
+                  i2=i2+istep;;   
+                }
+              break;
+
+              case 2:
+                if(i3<=4.900){ 
+                  i3=i3+istep;  
+                }
+              break;
+
+              case 3:
+                if(i4<=4.900){ 
+                  i4=i4+istep;
+                }
+              break;
+            }
         }
+        i=0;
       }
     }
+
     pclk = cclk;
     pdt = cdt;
     i++;
-  }
+  }   
 }
 
 /*TODO:
